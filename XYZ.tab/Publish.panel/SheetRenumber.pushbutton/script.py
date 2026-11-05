@@ -26,6 +26,8 @@
 """
 import re
 import System
+import clr  # pyRevit 7: WPF-сборки сами не подгружаются
+clr.AddReference('PresentationCore'); clr.AddReference('PresentationFramework'); clr.AddReference('WindowsBase')
 import System.Windows.Input
 
 from pyrevit import revit, DB, script
