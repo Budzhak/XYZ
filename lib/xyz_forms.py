@@ -29,6 +29,16 @@ clr.AddReference('WindowsBase')
 from pyrevit.forms import *                     # noqa: F401,F403  всё прочее — как в pyRevit
 from pyrevit import forms as _pf
 
+
+class WPFWindow(_pf.WPFWindow):
+    """pyRevit 7: apply_contrast_foregrounds падает ('NoneType' has no attribute 'Color'),
+    когда в ресурсах окна XYZ нет pyRevitWindow*Brush. Ошибку контраста глотаем — окно открывается."""
+    def apply_contrast_foregrounds(self, *a, **k):
+        try:
+            return _pf.WPFWindow.apply_contrast_foregrounds(self, *a, **k)
+        except Exception:
+            return None
+
 import System
 from System.IO import File
 from System.Windows import (Thickness, TextWrapping, HorizontalAlignment, VerticalAlignment,
