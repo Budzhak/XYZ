@@ -4,12 +4,16 @@
 Окно: 3D-виды (активный и выбранные в диспетчере — отмечены), «Верх» и «Низ» — уровень + смещение, мм.
 Границы в плане: как сейчас у рамки вида; если рамки нет или стоит галочка «по модели» — по габариту
 элементов вида. Повёрнутая рамка поддерживается (поворот вокруг вертикали).
+«⤓ Указать» у «Верха» и «Низа» — щёлкнуть по плоскости (грань элемента, в т. ч. в связи): рамка сразу
+подрезается по этой отметке, уровень и смещение подставляются в окно — дальше можно поправить числом.
 «Применить» — окно остаётся открытым; «Закрыть». Отмена изменений — Ctrl+Z в Revit.
 Последние уровни и смещения запоминаются (xyz_settings, ключ cut3d).
 Окно по стандарту «Объёмов»: тянется, Ctrl+колесо — масштаб, размер запоминается, ошибки — окном.
 """
 import clr
 from pyrevit import revit, DB
+from Autodesk.Revit.UI.Selection import ObjectType
+from Autodesk.Revit.Exceptions import OperationCanceledException
 import xyz_forms as forms   # единый стиль окон XYZ (lib/xyz_forms.py)
 from System.Windows.Controls import CheckBox
 from System.Windows.Input import Keyboard, ModifierKeys, Key
@@ -129,6 +133,73 @@ def apply_view(view, z_bot, z_top, by_model):
     return None
 
 
+LAST_MSG = [None]   # (текст, ошибка?) — показать в окне после повторного открытия
+
+
+def pick_z():
+    """Щелчок по грани элемента; Esc — щелчок по элементу связи. Отметка точки щелчка (футы) или None."""
+    sel = uidoc.Selection
+    try:
+        r = sel.PickObject(ObjectType.PointOnElement, u'Подрезать 3D: щёлкните по плоскости (грань элемента). Esc — выбрать элемент в связи')
+        if r is not None and r.GlobalPoint is not None:
+            return r.GlobalPoint.Z
+    except OperationCanceledException:
+        pass
+    try:
+        r = sel.PickObject(ObjectType.LinkedElement, u'Подрезать 3D: щёлкните по элементу связи в нужном месте. Esc — отмена')
+        if r is not None and r.GlobalPoint is not None:
+            return r.GlobalPoint.Z
+    except OperationCanceledException:
+        pass
+    return None
+
+
+def level_off(z):
+    """Ближайший уровень не выше z и смещение от него, мм."""
+    below = [l for l in LEVELS if l.ProjectElevation <= z + 1e-6]
+    l = below[-1] if below else LEVELS[0]
+    return l, round((z - l.ProjectElevation) / MM)
+
+
+def z_cfg(k, default_idx):
+    lv = [l for l in LEVELS if vname(l) == CFG.get(k + '_lvl')]
+    l = lv[0] if lv else LEVELS[default_idx]
+    return l.ProjectElevation + float(CFG.get(k + '_off', 0) or 0) * MM
+
+
+def do_pick(side):
+    """Щелчок → отметка → рамка отмеченных видов сразу подрезается, уровень и смещение — в окно."""
+    z = pick_z()
+    if z is None:
+        LAST_MSG[0] = (u'Плоскость не выбрана — ничего не менял.', True)
+        return
+    # точка лежит в мировых координатах; отметки уровней — от начала проекта
+    l, off = level_off(z)
+    CFG[side + '_lvl'] = vname(l)
+    CFG[side + '_off'] = off
+    zt, zb = z_cfg('top', len(LEVELS) - 1), z_cfg('bot', 0)
+    if zt - zb < 10 * MM:
+        save_cfg()
+        LAST_MSG[0] = (u'Указано %s: %s %s мм — но верх получается не выше низа. Поправьте второе значение и «Применить».'
+                       % (u'верх' if side == 'top' else u'низ', vname(l), fmt(off)), True)
+        return
+    views = [v for v in VIEWS if v.Id.IntegerValue in PRESEL]
+    msgs = []
+    with revit.Transaction(u'Подрезать 3D по плоскости'):
+        for v in views:
+            m = apply_view(v, zb, zt, bool(CFG.get('by_model', False)))
+            if m:
+                msgs.append(m)
+    save_cfg()
+    try:
+        uidoc.RefreshActiveView()
+    except Exception:
+        pass
+    LAST_MSG[0] = (u'%s по плоскости: %s %s%s мм. Подрезано видов: %d. Поправьте смещение и «Применить», если нужно.'
+                   % (u'Верх' if side == 'top' else u'Низ', vname(l), u'+' if off >= 0 else u'', fmt(off), len(views) - len(msgs))
+                   + (u'\n' + u'\n'.join(msgs) if msgs else u''), bool(msgs))
+
+
 XAML = u'''
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -158,17 +229,19 @@ XAML = u'''
       </GroupBox>
       <GroupBox Header="Секущий диапазон рамки" Grid.Row="1" Margin="0,8,0,0">
         <Grid>
-          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="90"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
           <TextBlock Text="Верх:" Grid.Row="0" Margin="0,0,8,0"/>
           <ComboBox x:Name="cbTop" Grid.Row="0" Grid.Column="1" Margin="0,3"/>
           <TextBlock Text="Смещение:" Grid.Row="0" Grid.Column="2" Margin="12,0,8,0"/>
           <TextBox x:Name="tbTop" Grid.Row="0" Grid.Column="3" Margin="0,3" ToolTip="мм; ↑/↓ — ±100, PgUp/PgDn — ±500"/>
+          <Button x:Name="btnPickTop" Content="⤓ Указать" Grid.Row="0" Grid.Column="4" Margin="6,3,0,3" Padding="8,2" ToolTip="Щёлкнуть по плоскости в модели — верх рамки встанет на её отметку"/>
           <TextBlock Text="Низ:" Grid.Row="1" Margin="0,0,8,0"/>
           <ComboBox x:Name="cbBot" Grid.Row="1" Grid.Column="1" Margin="0,3"/>
           <TextBlock Text="Смещение:" Grid.Row="1" Grid.Column="2" Margin="12,0,8,0"/>
           <TextBox x:Name="tbBot" Grid.Row="1" Grid.Column="3" Margin="0,3" ToolTip="мм; ↑/↓ — ±100, PgUp/PgDn — ±500"/>
-          <CheckBox x:Name="chkModel" Grid.Row="2" Grid.ColumnSpan="4" Margin="0,8,0,0"
+          <Button x:Name="btnPickBot" Content="⤓ Указать" Grid.Row="1" Grid.Column="4" Margin="6,3,0,3" Padding="8,2" ToolTip="Щёлкнуть по плоскости в модели — низ рамки встанет на её отметку"/>
+          <CheckBox x:Name="chkModel" Grid.Row="2" Grid.ColumnSpan="5" Margin="0,8,0,0"
                     Content="Границы в плане — по модели (иначе — как сейчас у рамки вида)"
                     ToolTip="Вид без рамки всегда подрезается по габариту элементов вида + 300 мм"/>
         </Grid>
@@ -191,6 +264,7 @@ class CutWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, XAML.replace(u'XYZ_THEME_URI', forms.theme_uri()), literal_string=True)
         forms.theme(self, u'Подрезать 3D', u'Рамка 3D-вида сверху и снизу — по уровням со смещением, как «Секущий диапазон»', merge=False)
         self.boxes = []
+        self.pick_req = None
         for v in VIEWS:
             cb = CheckBox()
             box = u'' if v.IsSectionBoxActive else u'   · без рамки'
@@ -216,6 +290,8 @@ class CutWindow(forms.WPFWindow):
         self.btnRead.Click += self.on_read
         self.btnApply.Click += self.on_apply
         self.btnClose.Click += lambda s, e: self.Close()
+        self.btnPickTop.Click += lambda s, e: self.request_pick('top')
+        self.btnPickBot.Click += lambda s, e: self.request_pick('bot')
         for tb in (self.tbTop, self.tbBot):
             tb.PreviewKeyDown += self.on_num_key
             tb.TextChanged += self.on_change
@@ -233,6 +309,9 @@ class CutWindow(forms.WPFWindow):
         self.PreviewKeyDown += self.on_zoom_key
         self.Closing += self.on_closing
         self.on_change(None, None)
+        if LAST_MSG[0]:
+            self.status(LAST_MSG[0][0], LAST_MSG[0][1])
+            LAST_MSG[0] = None
 
     # ------------------------------------------------------------ уровни
     def set_level(self, cb, name, default):
@@ -317,6 +396,21 @@ class CutWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    def request_pick(self, side):
+        """Запомнить состояние окна и закрыть его: щелчок в модели — в main()."""
+        PRESEL.clear()
+        PRESEL.update(cb.Tag.Id.IntegerValue for cb in self.boxes if cb.IsChecked)
+        if not PRESEL:
+            return self.status(u'Отметьте хотя бы один 3D-вид.', True)
+        for cb, tb, k in ((self.cbTop, self.tbTop, 'top'), (self.cbBot, self.tbBot, 'bot')):
+            if cb.SelectedIndex >= 0:
+                CFG[k + '_lvl'] = vname(LEVELS[cb.SelectedIndex])
+            if num(tb) is not None:
+                CFG[k + '_off'] = num(tb)
+        CFG['by_model'] = bool(self.chkModel.IsChecked)
+        self.pick_req = side
+        self.Close()
+
     def status(self, text, bad=False):
         self.tbStatus.Foreground = SolidColorBrush(Color.FromRgb(198, 40, 40) if bad else Color.FromRgb(46, 125, 50))
         self.tbStatus.Text = text
@@ -360,7 +454,7 @@ def forms_thick(l, t, r, b):
     return Thickness(l, t, r, b)
 
 
-for _n in ('on_find', 'on_change', 'on_read', 'on_apply', 'on_num_key', 'check_all'):
+for _n in ('on_find', 'on_change', 'on_read', 'on_apply', 'on_num_key', 'check_all', 'request_pick'):
     setattr(CutWindow, _n, guarded(getattr(CutWindow, _n)))
 
 
@@ -369,7 +463,16 @@ def main():
         forms.alert(u'В проекте нет уровней.', exitscript=True)
     if not VIEWS:
         forms.alert(u'В проекте нет 3D-видов.', exitscript=True)
-    CutWindow().ShowDialog()
+    while True:
+        w = CutWindow()
+        w.ShowDialog()
+        if not w.pick_req:
+            break
+        try:
+            do_pick(w.pick_req)
+        except Exception:
+            import traceback
+            LAST_MSG[0] = (u'Ошибка при выборе плоскости:\n' + traceback.format_exc()[-800:], True)
 
 
 main()
