@@ -68,6 +68,9 @@ STEPS = [
     ('equip', u"Оборудование"),
     ('tees', u"Тройники и крестовины"),
     ('size', u"Марки «Размер» на остальных участках"),
+    # 01.11.2026: схемы отопления с коллекторами (код — dress_fan.py)
+    ('fan', u"Веер лучей от выделенных коллекторов (разнос по высоте + марки)"),
+    ('eqtags', u"Марки приборов: прямая выноска поодаль (выделенные приборы)"),
 ]
 
 BIC = BuiltInCategory
@@ -3713,7 +3716,7 @@ def run_step(doc, uidoc, step, elems, strict=False, offset_mm=0.0, pick=None):
     view = doc.ActiveView
     if not isinstance(view, View3D):
         return u"Нужен 3D-вид (схема).", []
-    need_occ = step not in ('explode', 'transp', 'paths', 'paths_reset', 'addto')
+    need_occ = step not in ('explode', 'transp', 'paths', 'paths_reset', 'addto', 'fan', 'eqtags')
     ctx = Ctx(doc, view, elems, need_occ)
     title = dict(STEPS)[step]
     if step == 'explode':
@@ -3751,6 +3754,17 @@ def run_step(doc, uidoc, step, elems, strict=False, offset_mm=0.0, pick=None):
         step_sys(ctx)
     elif step == 'transp':
         step_transp(ctx, elems or [])
+    elif step in ('fan', 'eqtags'):
+        # схемы отопления с коллекторами (01.11.2026): веер лучей, марки приборов
+        import sys as _sys
+        _sys.modules.pop('dress_fan', None)
+        import dress_fan
+        ctx.notes = []
+        keep = dress_fan.run(_sys.modules[__name__], ctx, step, elems or [], offset_mm)
+        rep = ctx.report(title)
+        if ctx.notes:
+            rep += u"\n" + u"\n".join(u"  " + x for x in ctx.notes)
+        return rep, list(keep)
     else:
         step_tags(ctx, step, strict)
     if ctx.forced:

@@ -59,6 +59,7 @@ ACTION_PICKSPOT = u"Отметка на взрыв-схеме (выбранно�
 ACTION_RESET = u"Сброс марок (выноска, сторона, длина)"
 ACTION_DRESS = u"Оформить взрыв-схему по шагам (разнос, отметки, марки…)"
 ACTION_DECLUTTER = u"Развести наложенные марки (обход марок, размеров, труб)"
+ACTION_POLISH = u"Доводка марок: полка по тексту, прямые выноски в обход"
 ACTION_SNAP = u"Конец выноски — в центр элемента"
 ACTION_SPREAD = u"Выноски — равный шаг вдоль оси элемента"
 ACTION_SETTINGS = u"Настройки: отступ между марками в колонке…"
@@ -92,6 +93,7 @@ if isinstance(view, View3D) and other_selected:
     action_options.append(ACTION_SPOTS)
 if not isinstance(view, View3D) or tags:
     action_options.append(ACTION_DECLUTTER)
+    action_options.append(ACTION_POLISH)
 if len(tags) >= 2:
     action_options.append(ACTION_UNSTACK)
 action_options.append(ACTION_SMART)
@@ -141,7 +143,7 @@ if action_choice == ACTION_SETTINGS:
     _ask_stack_spacing()
     raise SystemExit
 
-if action_choice not in (ACTION_SMART, ACTION_CLICKNUM, ACTION_SPOTS, ACTION_PICKSPOT, ACTION_RESET, ACTION_DRESS, ACTION_DECLUTTER, ACTION_SNAP, ACTION_SPREAD) and not tags:
+if action_choice not in (ACTION_SMART, ACTION_CLICKNUM, ACTION_SPOTS, ACTION_PICKSPOT, ACTION_RESET, ACTION_DRESS, ACTION_DECLUTTER, ACTION_POLISH, ACTION_SNAP, ACTION_SPREAD) and not tags:
     forms.alert(u"Не выделено ни одной марки (IndependentTag).\n\n"
                 u"Выделите марки и запустите инструмент снова.",
                 title=u"Выравнивание марок")
@@ -608,7 +610,7 @@ if action_choice == ACTION_DRESS:
             _elems = list(other_selected) or None
             _go = True
             _off = 0.0
-            if _step in ('explode', 'transp', 'addto') and not _elems:
+            if _step in ('explode', 'transp', 'addto', 'fan', 'eqtags') and not _elems:
                 forms.alert(u"Для этого шага выделите элементы на виде.", title=_choice)
                 _go = False
             if _go and _step == 'explode':
@@ -624,6 +626,23 @@ if action_choice == ACTION_DRESS:
                         _cfg.dress_offset = _s
                     except Exception:
                         forms.alert(u"Нужно число, например 2500 или -1500.", title=_choice)
+                        _go = False
+            if _go and _step == 'fan':
+                # 01.11.2026: веер лучей от коллекторов (dress_fan.py) — шаг между лучами на листе
+                _s = forms.ask_for_string(default=_cfg.get_option('dress_fan_gap', u"2.5"),
+                                          prompt=u"Шаг между лучами на листе, мм\n"
+                                                 u"(лучи коллектора разносятся по высоте веером)",
+                                          title=_choice)
+                if _s is None:
+                    _go = False
+                else:
+                    try:
+                        _off = float(_s.replace(u",", u".").replace(u" ", u""))
+                        if _off <= 0:
+                            raise ValueError
+                        _cfg.dress_fan_gap = _s
+                    except Exception:
+                        forms.alert(u"Нужно положительное число, например 2.5.", title=_choice)
                         _go = False
             _pick = None
             if _go and _step == 'elev':
@@ -852,10 +871,31 @@ if action_choice == ACTION_DECLUTTER:
 
 
 # ============================================================
+# БЛОК 4Ж2. "Доводка марок" (01.11.2026): после «Развести наложенные» — полки
+# ADSK_Марка_* по длине текста, плохие марки на прямую выноску / «Г» в обход
+# (код - в tag_polish.py)
+# ============================================================
+if action_choice == ACTION_POLISH:
+    import os
+    import sys
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
+    try:
+        sys.modules.pop('tag_polish', None)   # всегда свежая версия модуля
+        import tag_polish
+        tag_polish.run(doc, uidoc, tags)
+    except Exception as ex:
+        import traceback
+        forms.alert(u"Ошибка доводки марок:\n\n{}".format(traceback.format_exc()),
+                    title=u"Ошибка")
+
+
+# ============================================================
 # Режимы выравнивания (для "Разнести наложенные" и "Реверс" - не выполняются,
 # скрипт просто доходит до конца без SystemExit)
 # ============================================================
-if action_choice not in (ACTION_STACK, ACTION_RESET, ACTION_DECLUTTER, ACTION_SNAP, ACTION_SPREAD, ACTION_DRESS, ACTION_SPOTS, ACTION_PICKSPOT, ACTION_UNSTACK, ACTION_REVERSE, ACTION_SMART, ACTION_RENUMBER,
+if action_choice not in (ACTION_STACK, ACTION_RESET, ACTION_DECLUTTER, ACTION_POLISH, ACTION_SNAP, ACTION_SPREAD, ACTION_DRESS, ACTION_SPOTS, ACTION_PICKSPOT, ACTION_UNSTACK, ACTION_REVERSE, ACTION_SMART, ACTION_RENUMBER,
                          ACTION_MERGE, ACTION_CLICKNUM):
 
     # ============================================================
@@ -1115,4 +1155,4 @@ if action_choice not in (ACTION_STACK, ACTION_RESET, ACTION_DECLUTTER, ACTION_SN
         uidoc.RefreshActiveView()
 
 
-        default_spacing_mm = spacing_str
+        default_spacing_mm = spacing_str
