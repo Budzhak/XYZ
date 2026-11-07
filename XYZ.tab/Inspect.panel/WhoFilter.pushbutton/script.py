@@ -41,6 +41,358 @@ doc = revit.doc
 uidoc = revit.uidoc
 view = doc.ActiveView
 TITLE = u'Чей фильтр'
+# v3.4 · 07.11.2026: окно «Фильтры» открывается без задержки — сторож окна на user32 вместо UI Automation,
+# Idling не крутится вхолостую.
+# v3.2 · 02.11.2026: «Фильтры…» и «Изменить фильтр ▸» — открыть окно Revit «Фильтры» (нужный фильтр уже выделен),
+# после «ОК»/«Отмена» в нём «Чей фильтр» открывается снова с тем же элементом и перечитывает фильтры.
+__persistentengine__ = True
+GO = {'filters': False, 'name': None}
+WHO_ID = u'CustomCtrl_%CustomCtrl_%XYZ%Найти%WhoFilter'
+
+
+def go_filters(name=None):
+    """Закрыть окно и после него открыть «Фильтры» Revit; неприменённое — спросить."""
+    try:
+        if pending() and forms.alert(u'Есть неприменённые изменения. Применить их перед переходом в «Фильтры»?',
+                                     title=TITLE, yes=True, no=True):
+            apply_changes()
+    except Exception:
+        pass
+    GO['filters'] = True
+    GO['name'] = name
+    dlg.Close()
+
+
+def _dbg(m):
+    try:
+        import io, os, time as _t
+        with io.open(os.path.join(os.environ.get('TEMP', 'C:\\Temp'), 'whofilter_dbg.txt'), 'a', encoding='utf-8') as fh:
+            fh.write(u'%s %s\n' % (_t.strftime('%H:%M:%S'), m))
+    except Exception:
+        pass
+
+
+def _norm(s):
+    return (s or u'').replace(u'꞉', u':').replace(u'\xa0', u' ').strip().lower()
+
+
+def _pick_w32(hdlg, name):
+    """Выделить фильтр в дереве окна «Фильтры» сообщениями Windows (SysTreeView32 в том же процессе)."""
+    import ctypes
+    from ctypes import wintypes
+    u = ctypes.windll.user32
+    u.FindWindowExW.restype = ctypes.c_void_p
+    u.FindWindowExW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_wchar_p]
+    u.SendMessageW.restype = ctypes.c_void_p
+    u.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+    u.GetWindow.restype = ctypes.c_void_p
+    u.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+
+    def find_tree(h, depth=0):
+        t = u.FindWindowExW(h, None, u'SysTreeView32', None)
+        if t:
+            return t
+        if depth > 3:
+            return None
+        c = u.GetWindow(h, 5)          # GW_CHILD
+        while c:
+            r = find_tree(c, depth + 1)
+            if r:
+                return r
+            c = u.GetWindow(c, 2)      # GW_HWNDNEXT
+        return None
+
+    class TVITEMW(ctypes.Structure):
+        _fields_ = [('mask', ctypes.c_uint), ('hItem', ctypes.c_void_p), ('state', ctypes.c_uint),
+                    ('stateMask', ctypes.c_uint), ('pszText', ctypes.c_wchar_p), ('cchTextMax', ctypes.c_int),
+                    ('iImage', ctypes.c_int), ('iSelectedImage', ctypes.c_int), ('cChildren', ctypes.c_int),
+                    ('lParam', ctypes.c_void_p)]
+
+    tree = find_tree(ctypes.c_void_p(hdlg))
+    _dbg(u'w32 tree: %s' % bool(tree))
+    if not tree:
+        try:
+            u.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+            cb = ctypes.create_unicode_buffer(256)
+            seen = []
+            def walk(h, d):
+                c = u.GetWindow(h, 5)
+                while c and len(seen) < 80:
+                    u.GetClassNameW(c, cb, 255)
+                    seen.append(u'%d:%s' % (d, cb.value))
+                    if d < 3:
+                        walk(c, d + 1)
+                    c = u.GetWindow(c, 2)
+            u.GetClassNameW(ctypes.c_void_p(hdlg), cb, 255)
+            _dbg(u'hdlg=%s class=%s' % (hdlg, cb.value))
+            walk(ctypes.c_void_p(hdlg), 1)
+            _dbg(u'children: ' + u', '.join(seen))
+        except Exception as ex:
+            _dbg(u'walk err %s' % ex)
+    if not tree:
+        return False
+    buf = ctypes.create_unicode_buffer(512)
+
+    def text(hi):
+        it = TVITEMW()
+        it.mask = 1                    # TVIF_TEXT
+        it.hItem = hi
+        it.pszText = ctypes.cast(buf, ctypes.c_wchar_p)
+        it.cchTextMax = 511
+        u.SendMessageW(tree, 0x113E, None, ctypes.cast(ctypes.byref(it), ctypes.c_void_p))   # TVM_GETITEMW
+        return buf.value
+
+    want = _norm(name)
+    stack = [u.SendMessageW(tree, 0x110A, ctypes.c_void_p(0), None)]   # TVGN_ROOT
+    n = 0
+    while stack:
+        hi = stack.pop()
+        while hi:
+            n += 1
+            if _norm(text(hi)) == want:
+                u.SendMessageW(tree, 0x110B, ctypes.c_void_p(9), ctypes.c_void_p(hi))   # TVM_SELECTITEM, TVGN_CARET
+                u.SendMessageW(tree, 0x1114, None, ctypes.c_void_p(hi))                 # TVM_ENSUREVISIBLE
+                _dbg(u'w32 selected (%d checked)' % n)
+                return True
+            ch = u.SendMessageW(tree, 0x110A, ctypes.c_void_p(4), ctypes.c_void_p(hi))   # TVGN_CHILD
+            if ch:
+                stack.append(ch)
+            hi = u.SendMessageW(tree, 0x110A, ctypes.c_void_p(1), ctypes.c_void_p(hi))   # TVGN_NEXT
+            if n > 5000:
+                break
+    _dbg(u'w32 not found among %d' % n)
+    return False
+
+
+IDX = [-1]
+
+
+def _filter_index(name):
+    """Позиция фильтра в списке окна «Фильтры»: сначала фильтры по правилам, потом фильтры выбора,
+    внутри — по алфавиту без учёта регистра (как в Revit)."""
+    from Autodesk.Revit.DB import ParameterFilterElement, SelectionFilterElement
+    from System import String, StringComparison
+    import functools
+    cmpf = lambda a, b: String.Compare(a, b, StringComparison.CurrentCultureIgnoreCase)
+    rule = sorted([e.Name for e in FilteredElementCollector(doc).OfClass(ParameterFilterElement)],
+                  key=functools.cmp_to_key(cmpf))
+    sel = sorted([e.Name for e in FilteredElementCollector(doc).OfClass(SelectionFilterElement)],
+                 key=functools.cmp_to_key(cmpf))
+    if name in rule:
+        return 1 + rule.index(name)                 # строка 0 — узел «Фильтры по правилам»
+    if name in sel:
+        return 1 + len(rule) + 1 + sel.index(name)  # +1 — узел «Фильтры выбора»
+    return -1
+
+
+def _pick_keys(hdlg, idx):
+    """Список фильтров в «Фильтрах» — собственный элемент Revit (AfxWnd140u), без доступа извне.
+    В нём при открытии выделен первый фильтр; шлём ему Home и «вниз» idx раз."""
+    import ctypes
+    u = ctypes.windll.user32
+    u.GetWindow.restype = ctypes.c_void_p
+    u.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+    u.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+    u.SendMessageW.restype = ctypes.c_void_p
+    u.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+    cb = ctypes.create_unicode_buffer(64)
+    c = u.GetWindow(ctypes.c_void_p(hdlg), 5)
+    lst = None
+    while c:
+        u.GetClassNameW(c, cb, 63)
+        if cb.value.startswith(u'AfxWnd'):
+            lst = c
+            break
+        c = u.GetWindow(c, 2)
+    _dbg(u'keys: list=%s idx=%d' % (bool(lst), idx))
+    if not lst or idx < 0:
+        return False
+    WM_KEYDOWN, WM_KEYUP, VK_HOME, VK_DOWN = 0x100, 0x101, 0x24, 0x28
+    _dbg(u'keys: down x%d' % idx)
+    def key(vk, n=1):
+        for _ in range(n):
+            u.SendMessageW(lst, WM_KEYDOWN, ctypes.c_void_p(vk), ctypes.c_void_p(1))
+            u.SendMessageW(lst, WM_KEYUP, ctypes.c_void_p(vk), ctypes.c_void_p(0xC0000001))
+    u.SetFocus.argtypes = [ctypes.c_void_p]
+    u.SetFocus(lst)
+    u.SendMessageW(lst, 0x000B, None, None)              # WM_SETREDRAW off (только список)
+    try:
+        key(VK_HOME)
+        key(VK_DOWN, idx)
+    finally:
+        u.SendMessageW(lst, 0x000B, ctypes.c_void_p(1), None)
+        u.RedrawWindow.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
+        u.RedrawWindow(lst, None, None, 0x0001 | 0x0004 | 0x0100)
+    return True
+
+
+def _pick(win, name):
+    """Выделить фильтр name в дереве окна «Фильтры»: сначала через UIA, иначе — фокус на дерево и набор имени
+    (поиск по первым буквам, как при ручном вводе в списке Windows)."""
+    return   # выделение фильтра в списке отключено по решению db 02.11 (переборка клавишами слишком медленная)
+    from System.Windows.Automation import (AutomationElement, TreeScope, PropertyCondition, ControlType,
+                                           SelectionItemPattern, ScrollItemPattern)
+    items = win.FindAll(TreeScope.Descendants,
+                        PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem))
+    _dbg(u'tree items: %d, first: %s' % (items.Count, u' | '.join(items[i].Current.Name for i in range(min(4, items.Count)))))
+    want = _norm(name)
+    for i in range(items.Count):
+        it = items[i]
+        if _norm(it.Current.Name) == want:
+            try:
+                it.GetCurrentPattern(ScrollItemPattern.Pattern).ScrollIntoView()
+            except Exception:
+                pass
+            it.GetCurrentPattern(SelectionItemPattern.Pattern).Select()
+            _dbg(u'selected via UIA')
+            return
+    tree = win.FindFirst(TreeScope.Descendants,
+                         PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Tree))
+    _dbg(u'tree control: %s' % (tree is not None))
+    if tree is not None:
+        tree.SetFocus()
+    import time as _tm
+    _tm.sleep(0.35)   # фокус в окне «Фильтры» по умолчанию — на списке фильтров; набор имени = поиск по буквам
+    import clr
+    clr.AddReference('System.Windows.Forms')
+    from System.Windows.Forms import SendKeys
+    esc = u''.join((u'{%s}' % c) if c in u'+^%~(){}[]' else c for c in name.replace(u'꞉', u':'))
+    SendKeys.SendWait(esc)
+    _dbg(u'typed name')
+
+
+def _relaunch_later(uiapp):
+    """Запуск не из обработчика Idling (Revit запрещает подписки/команды изнутри него): таймер WPF на UI-потоке."""
+    from System.Windows.Threading import DispatcherTimer
+    from System import TimeSpan, EventHandler
+    tm = DispatcherTimer()
+    tm.Interval = TimeSpan.FromMilliseconds(250)
+
+    def tick(s, e):
+        tm.Stop()
+        _relaunch(uiapp)
+    tm.Tick += EventHandler(tick)
+    tm.Start()
+    _dbg(u'relaunch scheduled')
+
+
+def _relaunch(uiapp):
+    try:
+        import clr
+        clr.AddReference('AdWindows')
+        from Autodesk.Windows import ComponentManager
+        for tab in ComponentManager.Ribbon.Tabs:
+            for pnl in tab.Panels:
+                for it in pnl.Source.Items:
+                    if getattr(it, 'Id', None) == WHO_ID:
+                        it.CommandHandler.Execute(it)
+                        _dbg(u'relaunch via ribbon (first)')
+                        return
+    except Exception as ex:
+        _dbg(u'ribbon first err %s' % ex)
+    _relaunch_post(uiapp)
+
+
+def _relaunch_post(uiapp):
+    from Autodesk.Revit.UI import RevitCommandId
+    try:
+        cid = RevitCommandId.LookupCommandId(WHO_ID)
+        can = cid is not None and uiapp.CanPostCommand(cid)
+        _dbg(u'relaunch cid=%s can=%s' % (cid is not None, can))
+        if can:
+            uiapp.PostCommand(cid)
+            return
+    except Exception as ex:
+        _dbg(u'post err %s' % ex)
+    try:
+        import clr
+        clr.AddReference('AdWindows')
+        from Autodesk.Windows import ComponentManager
+        for tab in ComponentManager.Ribbon.Tabs:
+            for pnl in tab.Panels:
+                for it in pnl.Source.Items:
+                    if getattr(it, 'Id', None) == WHO_ID:
+                        it.CommandHandler.Execute(it)
+                        _dbg(u'relaunch via ribbon')
+                        return
+        _dbg(u'ribbon item not found')
+    except Exception as ex:
+        _dbg(u'ribbon err %s' % ex)
+
+
+def open_filters_and_return(name):
+    """«Фильтры» Revit через PostCommand; сторож UIA выделяет фильтр и ждёт закрытия окна,
+    затем Idling один раз запускает «Чей фильтр» заново (выделение элемента сохраняется)."""
+    import time
+    import clr
+    from System import EventHandler
+    from System.Threading import Thread, ThreadStart
+    from Autodesk.Revit.UI import RevitCommandId, PostableCommand
+    from Autodesk.Revit.UI.Events import IdlingEventArgs
+    try:
+        IDX[0] = _filter_index(name) if name else -1
+    except Exception as ex:
+        _dbg(u'idx err %s' % ex)
+    uiapp = __revit__
+    st = {'seen': False, 'gone': False, 't0': time.time()}
+
+    def watcher():
+        # v3.4 · 07.11.2026: без UI Automation. UIA из фонового потока опрашивал окна самого Revit
+        # каждые 0,25 с — вызовы уходили в UI-поток Revit и тормозили открытие «Фильтров» на секунды.
+        # Теперь — user32.FindWindowW по заголовку (мгновенно, UI-поток не трогает) + проверка процесса.
+        try:
+            import ctypes
+            u = ctypes.windll.user32
+            u.FindWindowW.restype = ctypes.c_void_p
+            u.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
+            u.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
+            u.IsWindowVisible.argtypes = [ctypes.c_void_p]
+            from System.Diagnostics import Process
+            pid = Process.GetCurrentProcess().Id
+
+            def dlg_open():
+                for title in (u'Фильтры', u'Filters'):
+                    h = u.FindWindowW(None, title)
+                    if h and u.IsWindowVisible(h):
+                        p = ctypes.c_ulong(0)
+                        u.GetWindowThreadProcessId(h, ctypes.byref(p))
+                        if p.value == pid:
+                            return True
+                return False
+            _dbg(u'watcher(w32) start pid=%s name=%s' % (pid, name))
+            while time.time() - st['t0'] < 1800:
+                if dlg_open():
+                    if not st['seen']:
+                        _dbg(u'dialog seen %.2f s' % (time.time() - st['t0']))
+                    st['seen'] = True
+                elif st['seen']:
+                    st['gone'] = True
+                    return
+                time.sleep(0.1 if not st['seen'] else 0.3)
+        except Exception as ex:
+            _dbg(u'watcher err %s' % ex)
+            st['gone'] = st['seen']
+
+    def on_idle(s, e):
+        if st['gone'] or not st.get('lg'):
+            st['lg'] = 1
+            _dbg(u'idle seen=%s gone=%s' % (st['seen'], st['gone']))
+        if st['gone'] or (not st['seen'] and time.time() - st['t0'] > 20):
+            try:
+                uiapp.Idling -= HANDLER[0]
+            except Exception:
+                pass
+            if st['gone']:
+                _relaunch_later(uiapp)
+        # v3.4: без SetRaiseWithoutDelay — Idling не крутится вхолостую, пока открыты «Фильтры»
+
+    HANDLER = [EventHandler[IdlingEventArgs](on_idle)]
+    th = Thread(ThreadStart(watcher))
+    th.IsBackground = True
+    th.Start()
+    uiapp.PostCommand(RevitCommandId.LookupPostableCommandId(PostableCommand.Filters))
+    uiapp.Idling += HANDLER[0]
+    _dbg(u'posted Filters, idling subscribed')
 
 
 def _iv(eid):
@@ -772,6 +1124,17 @@ def make_row(r):
     te.ToolTip = u'Линии, штриховки, прозрачность, полутон этого фильтра'
     txt.Children.Add(te)
     r['tb_edit'] = te
+    if r['kind'] == 'flt':
+        tf = TextBlock()
+        tf.Text = u'Изменить фильтр в Revit ▸'
+        tf.Foreground = B(forms.MUTE)
+        tf.FontSize = 11.5
+        tf.Cursor = Cursors.Hand
+        tf.Margin = Thickness(0, 2, 0, 0)
+        tf.HorizontalAlignment = HorizontalAlignment.Left
+        tf.ToolTip = u'Открыть окно Revit «Фильтры» (категории, правила). После «ОК» или «Отмена» это окно откроется снова.'
+        tf.MouseLeftButtonUp += lambda s, e, n=r['name']: go_filters(n)
+        txt.Children.Add(tf)
     ed = StackPanel()
     ed.Visibility = Visibility.Collapsed
     ed.Margin = Thickness(0, 6, 0, 2)
@@ -967,6 +1330,13 @@ def on_unfade(s, e):
         pass
 
 
+fb = Button()
+fb.Content = u'Фильтры…'
+fb.Margin = Thickness(0, 0, 8, 0)
+fb.MinWidth = 90
+fb.ToolTip = u'Окно Revit «Фильтры»: категории и правила. После «ОК» или «Отмена» это окно откроется снова.'
+fb.Click += lambda s, e: go_filters(None)
+dlg.footer.Children.Add(fb)
 ub = Button()
 ub.Content = u'Убрать всю блёклость'
 ub.Margin = Thickness(0, 0, 24, 0)
@@ -988,3 +1358,5 @@ for text, handler, primary, cancel in ((u'Закрыть', on_close, False, True
 
 forms.adaptive(dlg, 'whofilter')
 dlg.ShowDialog()
+if GO['filters']:
+    open_filters_and_return(GO['name'])
