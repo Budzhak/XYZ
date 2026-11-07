@@ -1,0 +1,13 @@
+title:
+  ru: Запись
+  en_us: "Screen\nRecorder"
+tooltip:
+  ru: |-
+    XYZ Запись — запись экрана со звуком прямо из Revit: замечания голосом, инструкции, ролик для коллеги или ИИ-агента.
+    Щелчок — запустить прибор (F9 — старт/стоп). Shift+щелчок — открыть папку программы.
+    Если программы нет на компьютере, кнопка сама скачает портативную версию с GitHub (Budzhak/XYZ-Record).
+  en_us: 'XYZ Record: screen + voice recorder launched right from Revit. Shift+click opens the program folder.'
+author: db
+version: 1.0.0
+description: Запуск XYZ Записи из Revit
+icon: icon.png
