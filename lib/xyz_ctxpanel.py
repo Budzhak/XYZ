@@ -23,7 +23,10 @@ PANEL_ID = u'XYZ_ctx'
 TAB_ID = u'Modify'
 XYZ_TAB = u'XYZ'
 # какие кнопки (окончание Id «...%<папка кнопки>»), по порядку
-BUTTONS = (u'Analis', u'WhoFilter', u'TypeFilter', u'Align', u'MEPAlign')
+BUTTONS = (u'Analis', u'WhoFilter', u'TypeFilter', u'Align', u'MEPAlign', u'Cut3D')
+# кнопки только для 3D-вида (db 06.11.2026: «Подрезать 3D» на планах не нужна)
+VIEW3D_ONLY = (u'Cut3D',)
+VA_KEY = u'XYZ_ctx_viewactivated'
 # панель «Оформить» (17.10.2026): малые кнопки без подписи, стопками по 3
 COMPACT = ((u'Stack', u'Snap', u'Spread'), (u'Reset', u'Reverse', u'AlignV'),
            (u'AlignH', u'Measure', u'Merge'), (u'NumClick', u'NumClock', u'Straight'))
@@ -130,6 +133,52 @@ def _tab(tid=None, title=None):
     return None
 
 
+def _is3d_view(view):
+    try:
+        from Autodesk.Revit.DB import View3D
+        return isinstance(view, View3D)
+    except Exception:
+        return True
+
+
+def _set_3d_visible(is3d):
+    mod = _tab(TAB_ID)
+    if mod is None:
+        return
+    ids = set(u'XYZ_ctx_' + b for b in VIEW3D_ONLY)
+    for p in mod.Panels:
+        if p.Source is None or p.Source.Id != PANEL_ID:
+            continue
+        for it in _walk(p.Source.Items):
+            if getattr(it, 'Id', None) in ids:
+                it.IsVisible = bool(is3d)
+
+
+def _on_view(sender, e):
+    try:
+        _set_3d_visible(_is3d_view(e.CurrentActiveView))
+    except Exception as ex:
+        _log(u'view: %s' % ex)
+
+
+def hook_view(uiapp):
+    """Показывать кнопки VIEW3D_ONLY только на 3D-виде: событие ViewActivated (одно на сессию,
+    после Reload pyRevit старый обработчик снимается)."""
+    from System import AppDomain
+    try:
+        old = AppDomain.CurrentDomain.GetData(VA_KEY)
+        if old is not None:
+            try:
+                uiapp.ViewActivated -= old
+            except Exception:
+                pass
+        uiapp.ViewActivated += _on_view
+        AppDomain.CurrentDomain.SetData(VA_KEY, _on_view)
+        _keep.append(_on_view)
+    except Exception as ex:
+        _log(u'hook_view: %s' % ex)
+
+
 def ensure(uiapp):
     """Поставить панель, если её нет (вызывать по таймеру: вкладка XYZ появляется не сразу)."""
     mod = _tab(TAB_ID)
@@ -226,6 +275,11 @@ def install(uiapp, buttons=BUTTONS):
         nb.CommandHandler = cmd
         nb.CommandParameter = o.Id
         nb.IsEnabled = True
+        if b in VIEW3D_ONLY:
+            try:
+                nb.IsVisible = _is3d_view(uiapp.ActiveUIDocument.ActiveView)
+            except Exception:
+                pass
         src.Items.Add(nb)
         n += 1
     # стопки малых кнопок «Оформить» — только значки
@@ -259,4 +313,10 @@ def install(uiapp, buttons=BUTTONS):
     pan.Source = src
     mod.Panels.Add(pan)
     _keep.append(pan)
+    if not _hooked:
+        hook_view(uiapp)
+        _hooked.append(1)
     return n
+
+
+_hooked = []
