@@ -3,7 +3,7 @@
   "type": "extension",
   "rocket_mode_compatible": "False",
   "name": "XYZ",
-  "description": "XYZ — инструменты ОВК, ВК для Revit: марки, схемы, пленумы, эскизы, ведомости, выпуск листов. Интерфейс на русском и английском.",
+  "description": "XYZ — инструменты ИОС для Revit: марки, схемы, пленумы, эскизы, ведомости, выпуск листов. Интерфейс на русском и английском.",
   "author": "Dmitry Budzhak",
   "author_profile": "https://github.com/Budzhak",
   "url": "https://github.com/Budzhak/XYZ.git",
