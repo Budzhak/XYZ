@@ -335,8 +335,7 @@ def do_build(s, e):
         nc, nu, nb2, nv = v.build(doc, sps, params, v.MP_WORKSET)
     CFG['params'] = params
     save_cfg()
-    BND.clear()
-    BND.update(v.bindings(doc))
+    refresh_params()   # привязанные сейчас параметры — сразу в список раскраски
     status(u'Создано %d, обновлено %d (сложных форм — сеткой: %d), без геометрии %d; значений %d; привязано '
            u'параметров %d. Отмена — Ctrl+Z.' % (nc, nu, v.LAST.get('mesh', 0), nb2, nv, len(done)))
     fill_values()
@@ -1145,10 +1144,10 @@ def fill_values(*a):
     foot_preview()
 
 
-def fill_params():
+def fill_params(keep=None):
     pc.Items.Clear()
     prm = [n for n in PNAMES if v.bound_to_gm(doc, n, BND)]
-    want = CFG.get('paint_param') or v.DEF_PARAMS[0]
+    want = keep or CFG.get('paint_param') or v.DEF_PARAMS[0]
     for n in prm:
         ci = ComboBoxItem()
         ci.Content = n
@@ -1160,7 +1159,39 @@ def fill_params():
         pc.SelectedIndex = 0
 
 
-pc.SelectionChanged += lambda s, e: (switch_parts(cur_param()), fill_values(), uniq_text(), sync_pal())
+PC_BUSY = [False]   # список перестраивается — смену выбора не обрабатывать
+
+
+def on_pc(s, e):
+    if PC_BUSY[0]:
+        return
+    switch_parts(cur_param())
+    fill_values()
+    uniq_text()
+    sync_pal()
+
+
+pc.SelectionChanged += on_pc
+
+
+def refresh_params():
+    """Привязки перечитать заново: параметр, только что привязанный к «Обобщённым моделям»,
+    появляется в списке сразу, без переоткрытия окна. Выбранный параметр остаётся выбранным."""
+    BND.clear()
+    BND.update(v.bindings(doc))
+    if [it.Tag for it in pc.Items] == [n for n in PNAMES if v.bound_to_gm(doc, n, BND)]:
+        return
+    old = cur_param()
+    PC_BUSY[0] = True
+    try:
+        fill_params(old)
+    finally:
+        PC_BUSY[0] = False
+    if cur_param() != old:
+        on_pc(None, None)
+
+
+pc.DropDownOpened += lambda s, e: refresh_params()
 
 
 @guarded

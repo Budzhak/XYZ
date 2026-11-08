@@ -70,6 +70,7 @@ Without them, sheets are exported by Revit as is, without optimisation.
 | ![](docs/img/icons_bg/По%20красоте.png) | Annotate | Tag Tools | tag alignment, tag columns, tag reset, elevation marks on exploded views; experimental modes ask for confirmation |
 | | Annotate | 11 small buttons | Column, Center Leader, Even Spacing, Reset Tags, Reverse, Align Vertical, Align Horizontal, Measure Spacing, Merge Tags, Click Numbering, Clockwise Numbering |
 | ![](docs/img/icons_bg/Прямая%20выноска.png) | Annotate | Straight Leader | click a tag, then where it should go — the leader becomes straight and slides along the pipe |
+| ![](docs/img/icons_bg/Марки%20без%20наездов.png) | Annotate | Declutter Tags | moves tags (all in the view or the selected ones) so the text does not overlap pipes, equipment or other tags; stray leader ends snap back to the element; tag columns and elbowed leaders are left alone; Shift+click — preview only |
 | ![](docs/img/icons_bg/Участки%20фреона.png) | Annotate | Refrigerant Runs | refrigerant liquid-line segments on a 3D scheme: number, size, elbows, height difference, length; a schedule per system |
 | ![](docs/img/icons_bg/Опись%20листов.png) | Publish | Sheet Contents | sheet contents → Excel |
 | ![](docs/img/icons_bg/По%20порядку.png) | Publish | Renumber Sheets | sheet numbers in order within Project Browser groups, with a preview |
