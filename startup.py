@@ -350,3 +350,16 @@ def _repoint_buttons():
 
 
 _repoint_buttons()
+
+
+# ------------------------------------------------------------------
+# Новый год (db, 07.11.2026): фон панелей со снежинками, ёлочками и мигающей гирляндой,
+# раз в минуту над лентой пролетает Дед Мороз. Сам включается 15.12–15.01 (lib/xyz_newyear.py).
+# Значки кнопок не меняются.
+# ------------------------------------------------------------------
+try:
+    sys.modules.pop('xyz_newyear', None)
+    import xyz_newyear
+    _log('newyear: %s' % xyz_newyear.start())
+except Exception:
+    _log('newyear: ' + traceback.format_exc())
