@@ -5,7 +5,7 @@
   <img src="docs/img/logo_light.png" width="120" alt="XYZ — db BIM design">
 </picture>
 
-# XYZ — плагин pyRevit для проектировщиков ОВиК
+# XYZ — плагин pyRevit для проектировщиков ОВК, ВК
 
 **Русский** · [English](README_en.md)
 
