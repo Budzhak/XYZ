@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="docs/img/icons_bg/XYZ.png" width="76" alt="XYZ">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo_dark.png">
+  <img src="docs/img/logo_light.png" width="120" alt="XYZ — db BIM design">
+</picture>
 
 # XYZ — плагин pyRevit для проектировщиков ОВиК
 
