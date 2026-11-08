@@ -173,7 +173,7 @@ pyRevit → **Обновить** (Update) — pyRevit скачает новые 
 | | Кнопка | Коротко | |
 |:-:|---|---|:-:|
 | <img src="docs/img/icons_bg/Посмотреть.png" width="32"> | [Посмотреть](docs/Кнопки/Посмотреть.md) | спецификация → Excel: копия ведомости, «Как на виде» — править здесь, «ElementId» — эталон | [▶](docs/img/gif/Посмотреть.gif) |
-| <img src="docs/img/icons_bg/Забрать.png" width="32"> | [Забрать](docs/Кнопки/Забрать.md) | Excel → Revit (**не трогать код**) | |
+| <img src="docs/img/icons_bg/Забрать.png" width="32"> | [Забрать](docs/Кнопки/Забрать.md) | Excel → Revit | |
 | <img src="docs/img/icons_bg/Под%20копирку.png" width="32"> | [Под копирку](docs/Кнопки/Под%20копирку.md) | оформление ведомости → на ведомости с теми же графами; Shift+щелчок — ширины граф | |
 | <img src="docs/img/icons_bg/%D0%97%D0%B0%D0%BF%D0%B8%D1%81%D1%8C.png" width="32"> | [Запись](docs/Кнопки/Запись.md) | запуск [XYZ Записи](https://github.com/Budzhak/XYZ-Record) (экран + голос) из Revit; нет программы — сама скачает с GitHub; Shift+щелчок — папка программы | |
 

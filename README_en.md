@@ -18,7 +18,7 @@ MEP tools for Revit: tags, schematics, plenum families, fabrication sketches, qu
 
 </div>
 
-![XYZ tab on the Revit ribbon](docs/img/ribbon_en.png)
+![XYZ tab on the Revit ribbon](docs/img/ribbon_ru.png)
 
 ## Contents
 
