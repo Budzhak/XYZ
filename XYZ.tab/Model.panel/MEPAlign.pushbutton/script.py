@@ -14,7 +14,7 @@
 
 У фитингов и арматуры берётся ось соединителя, ближайшего к точке щелчка.
 Команды работают по кругу до Esc; каждый шаг — отдельная операция (Ctrl+Z).
-v7 · 13.10.2026
+v8 · 08.11.2026 (стрелки — одна, в горизонте)
 """
 from pyrevit import revit, script
 import xyz_forms as forms
@@ -334,20 +334,27 @@ def _solid_fill():
 
 
 def _arrow_solids(o, d, L, hl, b_d):
-    """Две скрещённые плоские стрелки (видны с любой стороны)."""
+    """Одна плоская стрелка в горизонтальной плоскости (db 08.11: «только в одном исполнении, в горизонте»).
+    Вертикальная стрелка (сдвиг по высоте) — плоскостью к виду, иначе её не видно."""
     hw, sw = hl * 0.55, hl * 0.2
-    out = []
-    for s in (b_d, d.CrossProduct(b_d).Normalize()):
-        n = d.CrossProduct(s).Normalize()
-        th = sw * 0.8
-        base = o - n * (th / 2)
-        P = lambda t, w: base + d * t + s * w
-        pts = [P(0, -sw), P(L - hl, -sw), P(L - hl, -hw), P(L, 0), P(L - hl, hw), P(L - hl, sw), P(0, sw)]
-        loop = CurveLoop()
-        for i in range(len(pts)):
-            loop.Append(Line.CreateBound(pts[i], pts[(i + 1) % len(pts)]))
-        out.append(GeometryCreationUtilities.CreateExtrusionGeometry(List[CurveLoop]([loop]), n, th))
-    return out
+    s = d.CrossProduct(XYZ.BasisZ)
+    if s.GetLength() < 1e-6:
+        try:
+            s = d.CrossProduct(doc.ActiveView.ViewDirection)
+        except Exception:
+            s = XYZ.BasisX
+        if s.GetLength() < 1e-6:
+            s = XYZ.BasisX
+    s = s.Normalize()
+    n = d.CrossProduct(s).Normalize()
+    th = sw * 0.8
+    base = o - n * (th / 2)
+    P = lambda t, w: base + d * t + s * w
+    pts = [P(0, -sw), P(L - hl, -sw), P(L - hl, -hw), P(L, 0), P(L - hl, hw), P(L - hl, sw), P(0, sw)]
+    loop = CurveLoop()
+    for i in range(len(pts)):
+        loop.Append(Line.CreateBound(pts[i], pts[(i + 1) % len(pts)]))
+    return [GeometryCreationUtilities.CreateExtrusionGeometry(List[CurveLoop]([loop]), n, th)]
 
 
 def _view_size():
