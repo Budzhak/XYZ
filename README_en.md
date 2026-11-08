@@ -9,15 +9,15 @@
 MEP tools for Revit: tags, schematics, plenum families, fabrication sketches, schedules and sheet export. So that Revit routine doesn't spoil your mood, use XYZ.
 
 > [!NOTE]
-> XYZ adds its own **XYZ** tab to the Revit ribbon. Panels: **Inspect** (find and select) · **Model** · **Explode** (exploded views) · **Annotate** · **Publish** · **Exchange** (Excel).
+> XYZ adds its own **XYZ** tab to the Revit ribbon. Panels: **Inspect** (find and select) · **Model** · **Explode** (exploded views) · **Annotate** · **Publish** · **Exchange** (Excel, screen recording).
 > Button titles and tooltips are available in English and Russian; pyRevit shows them in its own UI language. Command windows and the detailed button docs (`docs/Кнопки`) are in Russian for now.
 
 ## Installation
 
 > [!IMPORTANT]
-> Tested only on **Revit 2025.4** with **pyRevit 6.1.0**. Other Revit and pyRevit versions have not been tested.
+> Tested on **Revit 2025.4** with **pyRevit 6.1.0** and **pyRevit 7.0.0** (7.0.0.26278). Other Revit and pyRevit versions have not been tested.
 
-**1. pyRevit 6.1.0.** Close Revit, download and run the installer:
+**1. pyRevit 6.1.0 or 7.0.0.** Close Revit, download and run the installer (pyRevit 7 — see [pyRevit releases](https://github.com/pyrevitlabs/pyRevit/releases)):
 - [pyRevit_6.1.0.26047_signed.exe](https://github.com/pyrevitlabs/pyRevit/releases/download/v6.1.0.26047%2B2255/pyRevit_6.1.0.26047_signed.exe) — regular per-user install;
 - all files of this version — on the [6.1.0 release page](https://github.com/pyrevitlabs/pyRevit/releases/tag/v6.1.0.26047%2B2255).
 
@@ -77,6 +77,7 @@ Without them, sheets are exported by Revit as is, without optimisation.
 | ![](docs/img/icons_bg/Посмотреть.png) | Exchange | Schedule to Excel | schedule → Excel |
 | ![](docs/img/icons_bg/Забрать.png) | Exchange | Excel to Schedule | Excel → Revit |
 | ![](docs/img/icons_bg/Под%20копирку.png) | Exchange | Copy Format | schedule formatting → other schedules with the same columns; Shift+click — column widths only |
+| ![](docs/img/icons_bg/%D0%97%D0%B0%D0%BF%D0%B8%D1%81%D1%8C.png) | Exchange | Screen Recorder | launches XYZ Record (screen + voice) from Revit; downloads it from GitHub if missing; Shift+click — program folder |
 
 ## General rules
 - **XYZ panel on the «Modify | …» tab:** when something is selected, Identify, Which Filter, Filter by Type, Tag Tools and MEP Align are also available on Revit's contextual tab.
