@@ -1,0 +1,9 @@
+title:
+  ru: "Марки\nбез наездов"
+  en_us: "Declutter\nTags"
+tooltip:
+  ru: 'Активный 3D-вид или план: выделенные марки (или все марки вида) переставляются так, чтобы рамка текста не наезжала на трубы, воздуховоды, оборудование, приборы и другие марки. Конец выноски «в космосе» (далеко от смещённого разносом элемента) возвращается на элемент. Марки с изломом выноски, марки колонкой и марки с несколькими выносками не трогаются. Одна отмена Ctrl+Z. Shift+щелчок — только показать: выделит марки, которые были бы передвинуты.'
+  en_us: 'Active 3D view or plan: moves the selected tags (or all tags in the view) so their text does not overlap pipes, ducts, equipment, fixtures or other tags; leader ends left far from displaced elements snap back. Tags with elbows, tags in columns and multi-leader tags are left untouched. Shift+click: preview only (selects the tags that would move).'
+author: db
+version: 1.0.0
+icon: icon.png

@@ -68,12 +68,28 @@ def solve(view, a, b, head, cur=None, t_lo=0.02):
         if L < 1e-9 or abs(den) < 0.15 * L:      # труба почти вдоль выноски — так нельзя
             return None
         t = ((hu - au) / den) if mode == 'v' else ((hv - av) / den)
-        return t if t_lo <= t <= 1.0 - t_lo else None
+        return t
 
-    for mode in (prefer, 'h' if prefer == 'v' else 'v'):
+    # 09.11 (db: «Прямая выноска» демонстрировала угловую): если щелчок за пределами участка,
+    # раньше выходил излом. Теперь конец выноски прижимается к ближайшему краю участка,
+    # а марка сдвигается вдоль выноски — выноска остаётся прямой. Излом — только если труба
+    # идёт вдоль обоих направлений (на листе почти точка).
+    best = None
+    for k, mode in enumerate((prefer, 'h' if prefer == 'v' else 'v')):
         t = tpar(mode)
-        if t is not None:
+        if t is None:
+            continue
+        tc = max(t_lo, min(1.0 - t_lo, t))
+        # насколько сдвинется марка от точки щелчка (в единицах вида)
+        eu, ev = au + (bu - au) * tc, av + (bv - av) * tc
+        shift = abs(hv - ev) if mode == 'h' else abs(hu - eu)
+        if tc == t:
             return t, mode
+        cost = shift + (0 if k == 0 else 1e-6)
+        if best is None or cost < best[0]:
+            best = (cost, tc, mode)
+    if best is not None:
+        return best[1], best[2]
     # излом: ближайшая к марке точка трубы
     L2 = (bu - au) ** 2 + (bv - av) ** 2
     t = 0.5 if L2 < 1e-12 else ((hu - au) * (bu - au) + (hv - av) * (bv - av)) / L2
