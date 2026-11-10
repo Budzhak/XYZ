@@ -155,6 +155,7 @@ Links lead to the detailed docs (in Russian), **▶** — to a short animation.
 | <img src="docs/img/icons_bg/По%20красоте.png" width="32"> | [Tag Tools](docs/Кнопки/По%20красоте.md) | tag alignment, tag columns, tag reset, elevation marks on exploded views; experimental modes ask for confirmation | |
 | | 11 small buttons | Column, Center Leader, Even Spacing, Reset Tags, Reverse, Align Vertical, Align Horizontal, Measure Spacing, Merge Tags, Click Numbering, Clockwise Numbering — Tag Tools commands without the menu; also on the «Modify \| …» tab | |
 | <img src="docs/img/icons_bg/Прямая%20выноска.png" width="32"> | [Straight Leader](docs/Кнопки/Прямая%20выноска.md) | click a tag, then where it should go — the leader becomes straight and slides along the pipe | [▶](docs/img/gif/Прямая%20выноска.gif) |
+| <img src="docs/img/icons_bg/Марки%20без%20наездов.png" width="32"> | [Declutter Tags](docs/Кнопки/Марки%20без%20наездов.md) | **new** · moves tags (all in the view or the selected ones) so the text does not overlap pipes, equipment or other tags; stray leader ends snap back to the element; tag columns and elbowed leaders are left alone; Shift+click — preview only | |
 | <img src="docs/img/icons_bg/Участки%20фреона.png" width="32"> | [Refrigerant Runs](docs/Кнопки/Участки%20фреона.md) | refrigerant liquid-line segments on a 3D scheme: number, size, elbows, height difference, length; a schedule per system | [▶](docs/img/gif/Участки%20фреона.gif) |
 
 ### Publish
@@ -185,6 +186,7 @@ Links lead to the detailed docs (in Russian), **▶** — to a short animation.
 
 | Date | What |
 |---|---|
+| 10 Nov 2026 | new button [Declutter Tags](docs/Кнопки/Марки%20без%20наездов.md); [Straight Leader](docs/Кнопки/Прямая%20выноска.md): a click beyond the segment end still gives a straight leader; [Space Volumes](docs/Кнопки/Объёмы.md): a new shared parameter shows up in the list at once |
 | Nov 2026 | [Screen Recorder](docs/Кнопки/Запись.md) button (Exchange panel); pyRevit 7.0.0 support |
 | 28 Oct 2026 | new button [Fabrication Sketch](docs/Кнопки/Эскиз.md) |
 | 21 Oct 2026 | new buttons [Quantities](docs/Кнопки/Количество.md), [Naming](docs/Кнопки/Наименования.md), [Space Volumes](docs/Кнопки/Объёмы.md); common command workflow |
