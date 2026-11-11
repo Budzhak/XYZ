@@ -328,11 +328,66 @@ class _Dialog(_pf.WPFWindow):
 
 
 # ------------------------------------------------------------------ alert
+
+# ------------------------------------------------------------------ тестовый режим (автопроверка кнопок)
+# Если в процессе Revit задана переменная окружения XYZ_TEST_LOG (путь к файлу), окна не показываются:
+# текст пишется в этот файл, ответ берётся из XYZ_TEST_ANSWERS (через «|», по порядку; счётчик —
+# XYZ_TEST_I), иначе — кнопка по умолчанию (ОК / Да / первый вариант / значение по умолчанию).
+# Обычной работы это не касается: переменную ставит только стенд проверки (Claude, 11.11.2026).
+def _test_log():
+    try:
+        from System import Environment as _E
+        return _E.GetEnvironmentVariable('XYZ_TEST_LOG')
+    except Exception:
+        return None
+
+
+def _test_write(kind, title, text, answer):
+    path = _test_log()
+    if not path:
+        return
+    try:
+        import io
+        import datetime
+        with io.open(path, 'a', encoding='utf-8') as f:
+            f.write(u'[%s] %s | %s\n%s\n-> %s\n\n' % (datetime.datetime.now().strftime('%H:%M:%S'), kind,
+                    title or u'', text or u'', answer))
+    except Exception:
+        pass
+
+
+def _test_answer(default):
+    """Следующий заготовленный ответ или default. Ответ «-» — значит default."""
+    try:
+        from System import Environment as _E
+        raw = _E.GetEnvironmentVariable('XYZ_TEST_ANSWERS') or u''
+        i = int(_E.GetEnvironmentVariable('XYZ_TEST_I') or 0)
+        items = raw.split(u'|') if raw else []
+        if i < len(items):
+            _E.SetEnvironmentVariable('XYZ_TEST_I', str(i + 1))
+            v = items[i]
+            if v != u'-':
+                return v
+    except Exception:
+        pass
+    return default
+
 def alert(msg, title=None, sub_msg=None, expanded=None, footer='',
           ok=True, cancel=False, yes=False, no=False, retry=False,
           warn_icon=True, options=None, exitscript=False, **kwargs):
     """Как pyrevit.forms.alert: True — ОК/Да/Повтор, False — Нет/Отмена/закрыто,
     при options — текст выбранного варианта."""
+    if _test_log():
+        just = ok and not any([cancel, yes, no, retry])
+        if options:
+            res = _test_answer(options[0])
+            _test_write(u'alert', title, u'\n'.join(x for x in (msg, sub_msg, expanded) if x), res)
+            return res
+        res = _test_answer(u'yes') not in (u'no', u'cancel', u'false', u'0')
+        _test_write(u'alert', title, u'\n'.join(x for x in (msg, sub_msg, expanded) if x), res)
+        if exitscript and (not res or just):
+            sys.exit()
+        return res
     w = 480 if (msg and len(msg) > 160) else 440
     if options and max(len(o) for o in options) > 40:
         w = 600     # длинные пункты меню — шире окно, текст переносится (db, 18.10.2026)
@@ -401,6 +456,10 @@ def alert_ifnot(condition, msg, *args, **kwargs):
 # ------------------------------------------------------------------ ask_for_string
 def ask_for_string(default=None, prompt=None, title=None, **kwargs):
     """Как pyrevit.forms.ask_for_string: строка или None (Отмена/Esc)."""
+    if _test_log():
+        res = _test_answer(default)
+        _test_write(u'ask_for_string', title, prompt, res)
+        return res
     dlg = _Dialog(title or u'Ввод', width=420)
     if prompt:
         t = dlg.add_text(prompt)
@@ -444,6 +503,14 @@ class CommandSwitchWindow(object):
     @classmethod
     def show(cls, context, title=None, width=None, height=None, message=None,
              switches=None, config=None, recognize_access_key=False, **kwargs):
+        if _test_log():
+            opts = list(context)
+            res = _test_answer(opts[0] if opts else None)
+            _test_write(u'CommandSwitchWindow', title, message, res)
+            if switches:
+                sw = switches if isinstance(switches, dict) else dict((x, False) for x in switches)
+                return res, dict(sw)
+            return res
         dlg = _Dialog(title or u'Что делаем?', width=width if (width and width > 300) else 440)
         if message:
             dlg._t.Text = message
@@ -502,6 +569,10 @@ def pick_spot_side(title=u'Отметка на взрыв-схеме', value=u'�
     полка, значение). Сверху — полка вверху, снизу — полка внизу; слева/справа — куда полка.
     Возвращает 'UL' | 'UR' | 'L' | 'R' (как xyz_elev_marks.SIDES) или None (Esc).
     Клавиши: 7 9 / 1 3 (цифровой блок) или Q E / Z C."""
+    if _test_log():
+        res = _test_answer(None)
+        _test_write(u'pick_spot_side', title, value, res)
+        return res
     from System.Windows.Controls import Canvas
     from System.Windows.Shapes import Line, Polyline
     from System.Windows.Media import PointCollection
@@ -608,6 +679,16 @@ class SelectFromList(_pf.SelectFromList):
     """pyRevit SelectFromList (вся логика: поиск, группы, флажки) в оформлении XYZ."""
     xaml_source = os.path.join(XAML_DIR, 'SelectFromList.xaml')
 
+    @classmethod
+    def show(cls, context, *args, **kwargs):
+        if _test_log():
+            items = list(context.values())[0] if isinstance(context, dict) and context else list(context or [])
+            multi = kwargs.get('multiselect')
+            res = list(items) if multi else (items[0] if items else None)
+            _test_write(u'SelectFromList', kwargs.get('title'), u'%d пунктов' % len(items), u'все' if multi else res)
+            return res
+        return super(SelectFromList, cls).show(context, *args, **kwargs)
+
     def _setup(self, **kwargs):
         try:
             self.Resources.MergedDictionaries.Add(theme_dictionary())
@@ -630,6 +711,9 @@ class SelectFromList(_pf.SelectFromList):
 def reorder_list(items, title=u'Порядок', prompt=None):
     """Окно «Вверх/Вниз» для задания порядка; возвращает новый список (или исходный при отмене)."""
     items = list(items)
+    if _test_log():
+        _test_write(u'reorder_list', title, prompt, u'без изменений')
+        return items
     if len(items) < 2:
         return items
     dlg = _Dialog(title, width=520)

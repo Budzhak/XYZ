@@ -1,0 +1,9 @@
+title:
+  ru: "Выноски\nк деталям"
+  en_us: "Leaders\nto Parts"
+tooltip:
+  ru: 'Разнесённый 3D-вид (узел, взрыв-схема): у выделенных марок (или у всех марок вида) конец выноски — на видимой детали, полка строго горизонтально или вертикально, марки не налезают друг на друга; у края вида марка уходит в другую сторону. Одна отмена Ctrl+Z.'
+  en_us: 'Exploded 3D view (assembly detail): for the selected tags (or all tags in the view) the leader end goes onto the visible part, the leader is strictly horizontal or vertical, tags do not overlap; near the crop edge a tag flips to the other side. One Ctrl+Z.'
+author: db
+version: 1.0.0
+icon: icon.png
