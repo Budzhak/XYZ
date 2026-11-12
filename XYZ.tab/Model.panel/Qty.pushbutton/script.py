@@ -179,11 +179,14 @@ def step1():
     p = StackPanel()
     p.Children.Add(txt(u'Какие элементы', bold=True))
     r_sel = RadioButton()
+    r_sel.GroupName = 'qty_scope'
     r_sel.Content = u'Выделенные (%d эл.)' % len(SEL)
     r_sel.IsEnabled = len(SEL) > 0
     r_view = RadioButton()
+    r_view.GroupName = 'qty_scope'
     r_view.Content = u'На активном виде «%s»' % VIEW.Name
     r_mod = RadioButton()
+    r_mod.GroupName = 'qty_scope'
     r_mod.Content = u'Вся модель'
     sc = st.get('scope') or ('selection' if SEL else 'model')
     (r_sel if sc == 'selection' and SEL else (r_view if sc == 'view' else r_mod)).IsChecked = True
@@ -238,8 +241,10 @@ def step1():
 
     p.Children.Add(txt(u'Режим', bold=True, margin=Thickness(0, 12, 0, 4)))
     m1 = RadioButton()
+    m1.GroupName = 'qty_mode'
     m1.Content = u'Посчитать и показать пробу (записать — потом, кнопкой «Применить»)'
     m2 = RadioButton()
+    m2.GroupName = 'qty_mode'
     m2.Content = u'Только проверить — ничего не пишет: вне рамок, здание ≠ рамка, без данных, что изменилось бы'
     m1.IsChecked = True
     for r in (m1, m2):
