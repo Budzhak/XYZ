@@ -5,5 +5,5 @@ tooltip:
   ru: Какие фильтры активного вида действуют на выбранный элемент (в том числе элемент связи), их правила и графика. Фильтр можно сразу выключить, скрыть/показать его элементы и настроить графику (линии, штриховки, прозрачность, полутон) — «Применить» меняет вид, не закрывая окно.
   en_us: Shows which view filters (including link filters) affect the selected element and their rules; filters can be switched off from the window.
 author: db
-version: 2.0.0
+version: 2.1.0
 icon: icon.png

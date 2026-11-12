@@ -41,6 +41,7 @@ doc = revit.doc
 uidoc = revit.uidoc
 view = doc.ActiveView
 TITLE = u'Чей фильтр'
+# v3.5 · 12.11.2026: отчёт в файл — каждый запуск пишет %TEMP%\\xyz_whofilter_last.txt, кнопка «В файл» (К-И20).
 # v3.4 · 07.11.2026: окно «Фильтры» открывается без задержки — сторож окна на user32 вместо UI Automation,
 # Idling не крутится вхолостую.
 # v3.2 · 02.11.2026: «Фильтры…» и «Изменить фильтр ▸» — открыть окно Revit «Фильтры» (нужный фильтр уже выделен),
@@ -706,6 +707,80 @@ if el_notes:
                  u'категорий; здесь не меняется.' % u', '.join(str(x) for x in el_notes[:5]))
     tpl_note = tpl_note.strip()
 
+# ------------------------------------------------------------ 3а. отчёт в файл (К-И20)
+# Каждый запуск пишет отчёт в %TEMP%\xyz_whofilter_last.txt (его читает Claude при разборе вида без окна),
+# кнопка «В файл» сохраняет копию в «Документы\XYZ\Чей фильтр» и открывает папку.
+def _report_text():
+    import datetime
+    L = []
+    L.append(u'Чей фильтр · %s' % datetime.datetime.now().strftime('%d.%m.%Y %H:%M'))
+    L.append(u'Модель: %s' % doc.Title)
+    L.append(u'Вид: %s (id %s)%s' % (view.Name, _iv(view.Id), (u' · шаблон «%s»' % TPL.Name) if TPL else u''))
+    for el, ldoc, lab in targets[:50]:
+        try:
+            tn = (ldoc or doc).GetElement(el.GetTypeId()).Name
+        except Exception:
+            tn = u''
+        L.append(u'Элемент: id %s · %s · %s%s' % (_iv(el.Id), el.Category.Name if el.Category else u'?', tn,
+                                                   (u' · ' + lab) if lab else u''))
+    if len(targets) > 50:
+        L.append(u'… и ещё элементов: %d' % (len(targets) - 50))
+    if tpl_note:
+        L.append(u'')
+        L.append(tpl_note)
+    L.append(u'')
+    for r in rows:
+        if r['kind'] == 'flt':
+            act = u'ДЕЙСТВУЕТ' if r['hits'] else (u'неизвестно' if r['unknown'] else u'не действует')
+            L.append(u'[%s] Фильтр «%s» — %s (элементов: %d из %d)' % (r['order'], r['name'], act, r['hits'], len(targets)))
+        else:
+            L.append(u'[%s] %s' % (r['order'], r['name']))
+        L.append(u'    вкл.: %s · видимость: %s' % (u'да' if r['enabled'] else u'нет', u'да' if r['visible'] else u'нет'))
+        if r.get('cats'):
+            L.append(u'    категории: %s' % u', '.join(r['cats']))
+        if r.get('rules'):
+            L.append(u'    правила: %s' % r['rules'])
+        if r.get('ogs'):
+            L.append(u'    графика: %s' % r['ogs'])
+        if r.get('fade_cur'):
+            L.append(u'    блёклость: %s' % r['fade_cur'])
+        if r.get('why'):
+            L.append(u'    почему: %s' % u'; '.join(sorted(r['why'])))
+    return u'\r\n'.join(L) + u'\r\n'
+
+
+def _write_report(path):
+    import io
+    import os
+    d = os.path.dirname(path)
+    if d and not os.path.isdir(d):
+        os.makedirs(d)
+    with io.open(path, 'w', encoding='utf-8-sig') as fh:
+        fh.write(_report_text())
+    return path
+
+
+try:
+    import os as _os
+    _write_report(_os.path.join(System.IO.Path.GetTempPath(), u'xyz_whofilter_last.txt'))
+except Exception:
+    pass
+
+
+def on_to_file(s, e):
+    import os
+    import re
+    import datetime
+    try:
+        base = os.path.join(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments),
+                            u'XYZ', u'Чей фильтр')
+        nm = re.sub(r'[\\/:*?"<>|]+', u'_', view.Name)[:60]
+        path = _write_report(os.path.join(base, u'%s_%s.txt' % (nm, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))))
+        System.Diagnostics.Process.Start(u'explorer.exe', u'/select,"%s"' % path)
+    except Exception as ex:
+        forms.alert(u'Не удалось сохранить отчёт:\n%s' % ex, title=TITLE)
+
+
 # ------------------------------------------------------------ 4. окно
 B = forms._brush
 n_t = len(targets)
@@ -1330,6 +1405,13 @@ def on_unfade(s, e):
         pass
 
 
+tf_b = Button()
+tf_b.Content = u'В файл'
+tf_b.Margin = Thickness(0, 0, 8, 0)
+tf_b.MinWidth = 70
+tf_b.ToolTip = u'Сохранить отчёт (фильтры, правила, графика) в «Документы\\XYZ\\Чей фильтр» и открыть папку'
+tf_b.Click += on_to_file
+dlg.footer.Children.Add(tf_b)
 fb = Button()
 fb.Content = u'Фильтры…'
 fb.Margin = Thickness(0, 0, 8, 0)
