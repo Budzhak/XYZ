@@ -709,7 +709,8 @@ if el_notes:
 
 # ------------------------------------------------------------ 3а. отчёт в файл (К-И20)
 # Каждый запуск пишет отчёт в %TEMP%\xyz_whofilter_last.txt (его читает Claude при разборе вида без окна),
-# кнопка «В файл» сохраняет копию в «Документы\XYZ\Чей фильтр» и открывает папку.
+# кнопка «В файл» сохраняет копию в «Документы\XYZ\Чей фильтр» и открывает папку; там хранятся
+# только последние 10 отчётов, старые удаляются сами. Файл в %TEMP% один и каждый раз перезаписывается.
 def _report_text():
     import datetime
     L = []
@@ -769,6 +770,24 @@ except Exception:
     pass
 
 
+KEEP_REPORTS = 10      # в папке «Документы\\XYZ\\Чей фильтр» хранятся только последние 10 отчётов
+
+
+def _prune(folder):
+    """Оставить в папке последние KEEP_REPORTS отчётов, остальные удалить (только свои *.txt)."""
+    import os
+    try:
+        fs = [os.path.join(folder, f) for f in os.listdir(folder) if f.lower().endswith(u'.txt')]
+        fs.sort(key=os.path.getmtime, reverse=True)
+        for f in fs[KEEP_REPORTS:]:
+            try:
+                os.remove(f)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def on_to_file(s, e):
     import os
     import re
@@ -778,6 +797,7 @@ def on_to_file(s, e):
                             u'XYZ', u'Чей фильтр')
         nm = re.sub(r'[\\/:*?"<>|]+', u'_', view.Name)[:60]
         path = _write_report(os.path.join(base, u'%s_%s.txt' % (nm, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))))
+        _prune(base)
         System.Diagnostics.Process.Start(u'explorer.exe', u'/select,"%s"' % path)
     except Exception as ex:
         forms.alert(u'Не удалось сохранить отчёт:\n%s' % ex, title=TITLE)
