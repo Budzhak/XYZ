@@ -718,7 +718,8 @@ def _report_text():
     L.append(u'Вид: %s (id %s)%s' % (view.Name, _iv(view.Id), (u' · шаблон «%s»' % TPL.Name) if TPL else u''))
     for el, ldoc, lab in targets[:50]:
         try:
-            tn = (ldoc or doc).GetElement(el.GetTypeId()).Name
+            from Autodesk.Revit.DB import Element as _El
+            tn = _El.Name.GetValue((ldoc or doc).GetElement(el.GetTypeId()))
         except Exception:
             tn = u''
         L.append(u'Элемент: id %s · %s · %s%s' % (_iv(el.Id), el.Category.Name if el.Category else u'?', tn,
@@ -741,12 +742,13 @@ def _report_text():
         if r.get('rules'):
             L.append(u'    правила: %s' % r['rules'])
         if r.get('ogs'):
-            L.append(u'    графика: %s' % r['ogs'])
+            g = r['ogs']
+            L.append(u'    графика: %s' % (u', '.join(g) if isinstance(g, (list, tuple)) else g))
         if r.get('fade_cur'):
             L.append(u'    блёклость: %s' % r['fade_cur'])
         if r.get('why'):
             L.append(u'    почему: %s' % u'; '.join(sorted(r['why'])))
-    return u'\r\n'.join(L) + u'\r\n'
+    return u'\n'.join(L) + u'\n'
 
 
 def _write_report(path):
