@@ -622,7 +622,7 @@ def rule_row(i, r):
             if d == 0:
                 del RULES[i]
             elif d == 2:
-                RULES.insert(i + 1, json.loads(json.dumps(RULES[i])))
+                RULES.insert(i + 1, json.loads(json.dumps(RULES[i], ensure_ascii=False)))
             else:
                 k = i + d
                 if 0 <= k < len(RULES):

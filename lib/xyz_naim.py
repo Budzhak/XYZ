@@ -145,7 +145,7 @@ SAVE_KEYS = ('rules', 'tables', 'sections', 'cat_codes', 'eq_order', 'frames', '
 
 
 def sig(st):
-    return json.dumps([st.get(k) for k in ('rules', 'tables', 'sections', 'cat_codes', 'eq_order')], sort_keys=True)
+    return json.dumps([st.get(k) for k in ('rules', 'tables', 'sections', 'cat_codes', 'eq_order')], sort_keys=True, ensure_ascii=False)
 
 
 # ------------------------------------------------------------------ файл правил

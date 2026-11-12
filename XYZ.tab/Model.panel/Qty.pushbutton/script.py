@@ -52,7 +52,7 @@ S = {'items': [], 'outside': [], 'mism': [], 'bycat': {}, 'res': None, 'pcache':
 
 
 def rules_sig(rules):
-    return json.dumps(rules, sort_keys=True)
+    return json.dumps(rules, sort_keys=True, ensure_ascii=False)
 
 
 S['saved'] = rules_sig(st['rules']) if FROM_FILE else None
