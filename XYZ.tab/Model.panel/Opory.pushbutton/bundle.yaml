@@ -1,0 +1,13 @@
+title:
+  ru: Опоры
+  en_us: Supports
+tooltip:
+  ru: |-
+    Опорные конструкции под оборудование и трассы — по техкарте производителя.
+    1) Выделите оборудование (наружные блоки, вентустановки, вентиляторы) или прямые участки трасс.
+    2) Техкарта — внешний файл правил: какой комплект под какой габарит и массу, шаг и отступы опор. Его правит проектировщик, под любого производителя.
+    3) Проба — таблица «что станет» и показ в модели. Пока не нажато «Применить», модель не меняется. Отмена — Ctrl+Z.
+  en_us: Places support structures under equipment and along ducts, pipes and trays by a manufacturer selection chart (an external rules file), with a preview before applying.
+author: db
+version: 0.1.0
+icon: icon.png
