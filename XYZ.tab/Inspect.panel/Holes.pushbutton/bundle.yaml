@@ -1,0 +1,14 @@
+title:
+  ru: Отверстия
+  en_us: Openings
+tooltip:
+  ru: |-
+    Задания на отверстия: где воздуховоды, трубы и кабельные лотки проходят сквозь стены, перекрытия и крыши из связей (IFC и RVT).
+    1) Где: выделенное / активный вид / вся модель; какие сети, конструкции и связи.
+    2) Запасы в окне: круглое D + 100 мм, прямоугольное + 50 мм с каждой стороны, изоляция; близкие отверстия в одной конструкции объединяются.
+    3) Таблица: конструкция, толщина, этаж, размер сети и отверстия, отметки, координаты. Щелчок — выделить сети, двойной — показать на виде. «В Excel» — вся таблица.
+    В модели ничего не создаётся и не меняется.
+  en_us: Opening requests - finds where ducts, pipes and cable trays pass through walls, floors and roofs of linked models (IFC and RVT), sizes each opening with clearances, merges close ones, lists them in a sortable table and exports to Excel. Read-only, nothing is created in the model.
+author: db
+version: 0.1.0
+icon: icon.png
